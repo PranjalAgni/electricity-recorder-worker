@@ -1,0 +1,3 @@
+name = "electricity-recorder-worker"
+main = "src/index.ts"
+compatibility_date = "2023-02-26"
