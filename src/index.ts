@@ -13,13 +13,13 @@ export interface Env {
 }
 
 export default {
-	async fetch(
-		request: Request,
+	async scheduled(
+		controller: ScheduledController,
 		env: Env,
 		ctx: ExecutionContext
-	): Promise<Response> {
+	): Promise<void> {
 		const data = await gatherElectricityData();
-		return new Response(JSON.stringify(data, null, 3));
+		console.log(JSON.stringify(data, null, 3));
 	},
 };
 
