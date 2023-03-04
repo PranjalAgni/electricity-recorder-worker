@@ -19,13 +19,23 @@ export default {
 		ctx: ExecutionContext
 	): Promise<void> {
 		const data = await gatherElectricityData();
-		console.log(JSON.stringify(data, null, 3));
+		pushToAirtable(data);
 	},
 };
 
-async function gatherElectricityData(): Promise<any> {
+const pushToAirtable = async (data: any) => {
+	console.log(
+		JSON.stringify(
+			data.cart.cart_items[0].service_options.actions[0].displayValues,
+			null,
+			3
+		)
+	);
+};
+
+const gatherElectricityData = async (): Promise<any> => {
 	const API_URL = constructPaytmUrl();
-	const opts = getHeaders();
+	const opts = getPaytmHeaders();
 	const response = await fetch(API_URL, {
 		headers: opts,
 		body: JSON.stringify({
@@ -43,9 +53,14 @@ async function gatherElectricityData(): Promise<any> {
 		method: "POST",
 	});
 
+	if (!response.ok) {
+		console.error("Error: ", response.statusText);
+		return null;
+	}
+
 	const data = await response.json();
 	return data;
-}
+};
 
 const constructPaytmUrl = () => {
 	const apiUrl = new URL(
@@ -63,7 +78,7 @@ const constructPaytmUrl = () => {
 	return apiUrl;
 };
 
-const getHeaders = () => {
+const getPaytmHeaders = () => {
 	const headers = {
 		"user-agent": "cloudflare-worker",
 		"content-type": "application/json",
