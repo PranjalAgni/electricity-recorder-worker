@@ -24,6 +24,13 @@ export default {
 };
 
 const pushToAirtable = async (data: any) => {
+	const reqBody = {
+		fields: {
+			Date: new Date().toDateString(),
+			Amount: data.amount,
+			"Time Recorded": new Date().toTimeString(),
+		},
+	};
 	console.log(
 		JSON.stringify(
 			data.cart.cart_items[0].service_options.actions[0].displayValues,
