@@ -1,15 +1,32 @@
 export interface Env {
-	// Example binding to KV. Learn more at https://developers.cloudflare.com/workers/runtime-apis/kv/
-	// MY_KV_NAMESPACE: KVNamespace;
-	//
-	// Example binding to Durable Object. Learn more at https://developers.cloudflare.com/workers/runtime-apis/durable-objects/
-	// MY_DURABLE_OBJECT: DurableObjectNamespace;
-	//
-	// Example binding to R2. Learn more at https://developers.cloudflare.com/workers/runtime-apis/r2/
-	// MY_BUCKET: R2Bucket;
-	//
-	// Example binding to a Service. Learn more at https://developers.cloudflare.com/workers/runtime-apis/service-bindings/
-	// MY_SERVICE: Fetcher;
+	AIRTABLE_API_KEY: string;
+	AIRTABLE_TABLE_NAME: string;
+	AIRTABLE_BASE_ID: string;
+	"x-csrf-token": string;
+	"x-xsrf-token": string;
+	cookie: string;
+}
+
+interface PaytmResponse {
+	cart: {
+		cart_items: {
+			service_options: {
+				actions: {
+					displayValues: BillData[];
+				}[];
+			};
+		}[];
+	};
+}
+interface BillData {
+	label: string;
+	value: string;
+}
+
+interface Config {
+	airtableName: string;
+	airtableApiKey: string;
+	airtableBaseId: string;
 }
 
 export default {
@@ -18,31 +35,81 @@ export default {
 		env: Env,
 		ctx: ExecutionContext
 	): Promise<void> {
-		const data = await gatherElectricityData();
-		pushToAirtable(data);
+		const data = await gatherElectricityData(env);
+		if (data === null) return;
+		const amountIndex = getAmountIndex(data);
+		if (amountIndex === -1) return;
+
+		await submitAirtableHandler(data[amountIndex].value, env);
 	},
 };
 
-const pushToAirtable = async (data: any) => {
+const getAmountIndex = (data: Array<BillData>) => {
+	const findIndex = data.findIndex(
+		(billData) => billData.label === "Main Balance"
+	);
+
+	return findIndex;
+};
+
+const submitAirtableHandler = async (amount: string, env: Env) => {
+	const [formattedDate, formattedTime] = new Intl.DateTimeFormat("en-GB", {
+		day: "2-digit",
+		month: "2-digit",
+		year: "numeric",
+		hour: "2-digit",
+		minute: "2-digit",
+		second: "2-digit",
+	})
+		.format(new Date())
+		.split(", ");
+
 	const reqBody = {
 		fields: {
-			Date: new Date().toDateString(),
-			Amount: data.amount,
-			"Time Recorded": new Date().toTimeString(),
+			Date: formattedDate,
+			Amount: amount,
+			"Time recorded": formattedTime,
 		},
 	};
-	console.log(
-		JSON.stringify(
-			data.cart.cart_items[0].service_options.actions[0].displayValues,
-			null,
-			3
-		)
+
+	const config: Config = {
+		airtableName: env.AIRTABLE_TABLE_NAME,
+		airtableApiKey: env.AIRTABLE_API_KEY,
+		airtableBaseId: env.AIRTABLE_BASE_ID,
+	};
+
+	try {
+		const response = await createAirtableRecord(reqBody, config);
+		const data = await response.json();
+		if (!response.ok) {
+			throw new Error(JSON.stringify(data, null, 3));
+		}
+	} catch (ex: unknown) {
+		console.error("Failed writing to airtable: ", ex);
+	}
+};
+
+const createAirtableRecord = (body: any, config: Config) => {
+	return fetch(
+		`https://api.airtable.com/v0/${config.airtableBaseId}/${encodeURIComponent(
+			config.airtableName
+		)}`,
+		{
+			method: "POST",
+			body: JSON.stringify(body),
+			headers: {
+				Authorization: `Bearer ${config.airtableApiKey}`,
+				"Content-type": `application/json`,
+			},
+		}
 	);
 };
 
-const gatherElectricityData = async (): Promise<any> => {
+const gatherElectricityData = async (
+	env: Env
+): Promise<Array<BillData> | null> => {
 	const API_URL = constructPaytmUrl();
-	const opts = getPaytmHeaders();
+	const opts = getPaytmHeaders(env);
 	const response = await fetch(API_URL, {
 		headers: opts,
 		body: JSON.stringify({
@@ -61,12 +128,12 @@ const gatherElectricityData = async (): Promise<any> => {
 	});
 
 	if (!response.ok) {
-		console.error("Error: ", response.statusText);
+		console.error("Error fetching the electricity data: ", response.statusText);
 		return null;
 	}
 
-	const data = await response.json();
-	return data;
+	const data: PaytmResponse = await response.json();
+	return data.cart.cart_items[0].service_options.actions[0].displayValues;
 };
 
 const constructPaytmUrl = () => {
@@ -85,13 +152,13 @@ const constructPaytmUrl = () => {
 	return apiUrl;
 };
 
-const getPaytmHeaders = () => {
+const getPaytmHeaders = (env: Env) => {
 	const headers = {
 		"user-agent": "cloudflare-worker",
 		"content-type": "application/json",
-		"x-csrf-token": "gdTdEmnJ-Wx1Tsa0ChBe82mfcAXX_kAOrnAo",
-		"x-xsrf-token": "gdTdEmnJ-Wx1Tsa0ChBe82mfcAXX_kAOrnAo",
-		cookie: `connect.sid=s%3APUrFyEZB55gkJWzAfruJvaARSMzk71cR.5W4Hy6wZYaLVQCUQvsnV190%2F%2FxZ2U92HCAQGGHN58Ds; signalSDKVisitorId=cc8e0e20-b4dc-11ed-9d09-37197a6d9aef; ext_name=ojplmecpdpgccookcobabopnaifgidhf; _cfuvid=tiKUGfm8MShkmze_Zm2n6FomqGQJIweUX1BoeolrHhM-1677348402087-0-604800000; __cf_bm=7yprfFeamzefMgns0sR_ur7iyTQ1QdSZ8r5rhItZ2hM-1677521925-0-Ac2nLT5b6oCgpCW5OCvEowLoBra9LjtSsfuNG9IN7PvII2EnNsO8Ma1pFrY6L781L+JHR8Q1+0WpXZIORpMh8wU=; prodDetails={"products":{}}; XSRF-TOKEN=gdTdEmnJ-Wx1Tsa0ChBe82mfcAXX_kAOrnAo`,
+		"x-csrf-token": env["x-csrf-token"],
+		"x-xsrf-token": env["x-xsrf-token"],
+		cookie: env.cookie,
 	};
 
 	return headers;

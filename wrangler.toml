@@ -2,5 +2,6 @@ name = "electricity-recorder-worker"
 main = "src/index.ts"
 compatibility_date = "2023-02-26"
 
+account_id = "43709a5f0b9e5734080ff12a809ba831"
 [triggers]
 crons = ["0 1 * * *"]
