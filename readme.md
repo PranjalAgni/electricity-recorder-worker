@@ -33,3 +33,10 @@ curl "http://localhost:8787/__scheduled?cron=*/1+*+*+*+*"
 ### How it works?
 
 So we are using Cloudflare workers which provides the capability to run serverless functions as [scheduled jobs using Cron](https://developers.cloudflare.com/workers/platform/triggers/cron-triggers/), then we fetch our meter balance using Paytm electricity API as this is not a documented API I use my own cookie to send the request thankfully Paytm cookie does not expieres for a long time until you logout manually. After successfully fetching the balance we push it to [Airtable](https://airtable.com/) which I can access easily using it's mobile app. Our worker runs everyday around 1AM and record the current balance
+
+### Things to do
+
+- [ ] Monitoring and alerting - Notify if the worker fails
+- [ ] Explore better logging for the worker
+- [ ] POC: Is there a way to refresh Paytm cookie if it experies
+- [ ] Airtable make a graph(Line Chart) using the electricity bill data
