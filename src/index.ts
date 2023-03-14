@@ -52,6 +52,12 @@ const getAmountIndex = (data: Array<BillData>) => {
 	return findIndex;
 };
 
+const convertDate = (dateString: string) => {
+	// converts the date to mm-dd-yyy format
+	const [day, month, year] = dateString.split("/");
+	return `${month}/${day}/${year}`;
+};
+
 const submitAirtableHandler = async (amount: string, env: Env) => {
 	const [formattedDate, formattedTime] = new Intl.DateTimeFormat("en-GB", {
 		day: "2-digit",
@@ -66,7 +72,7 @@ const submitAirtableHandler = async (amount: string, env: Env) => {
 
 	const reqBody = {
 		fields: {
-			Date: formattedDate,
+			Date: convertDate(formattedDate),
 			Amount: amount,
 			"Time recorded": formattedTime,
 		},

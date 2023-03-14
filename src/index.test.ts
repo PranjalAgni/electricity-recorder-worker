@@ -18,8 +18,9 @@ describe("Worker", () => {
 	it("should return Hello World", async () => {
 		const resp = await worker.fetch();
 		if (resp) {
-			const text = await resp.text();
-			expect(text).toMatchInlineSnapshot(`"Hello World!"`);
+			const data = await resp.json();
+			console.log("Data: ", data);
+			expect(data).toBeNull();
 		}
 	});
 });
