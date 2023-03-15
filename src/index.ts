@@ -23,6 +23,11 @@ interface BillData {
 	value: string;
 }
 
+interface ElectricityDataResponse {
+	data: Array<BillData> | null;
+	error: unknown;
+}
+
 interface Config {
 	airtableName: string;
 	airtableApiKey: string;
@@ -35,12 +40,21 @@ export default {
 		env: Env,
 		ctx: ExecutionContext
 	): Promise<void> {
-		const data = await gatherElectricityData(env);
-		if (data === null) return;
+		let isSuccessRun = false;
+		const { data, error } = await gatherElectricityData(env);
+		if (data === null || error !== null) {
+			console.log(
+				"Failed to fetch electricity data from worker ",
+				isSuccessRun
+			);
+			return;
+		}
+
 		const amountIndex = getAmountIndex(data);
 		if (amountIndex === -1) return;
 
 		await submitAirtableHandler(data[amountIndex].value, env);
+		console.log("Worker run status:  ", isSuccessRun);
 	},
 };
 
@@ -59,6 +73,7 @@ const convertDate = (dateString: string) => {
 };
 
 const submitAirtableHandler = async (amount: string, env: Env) => {
+	// TODO: Extract date/time building logic in a seperate function
 	const [formattedDate, formattedTime] = new Intl.DateTimeFormat("en-GB", {
 		day: "2-digit",
 		month: "2-digit",
@@ -113,7 +128,7 @@ const createAirtableRecord = (body: any, config: Config) => {
 
 const gatherElectricityData = async (
 	env: Env
-): Promise<Array<BillData> | null> => {
+): Promise<ElectricityDataResponse> => {
 	const API_URL = constructPaytmUrl();
 	const opts = getPaytmHeaders(env);
 	const response = await fetch(API_URL, {
@@ -133,13 +148,20 @@ const gatherElectricityData = async (
 		method: "POST",
 	});
 
+	const data: PaytmResponse = await response.json();
+
 	if (!response.ok) {
 		console.error("Error fetching the electricity data: ", response.statusText);
-		return null;
+		return {
+			data: null,
+			error: data,
+		};
 	}
 
-	const data: PaytmResponse = await response.json();
-	return data.cart.cart_items[0].service_options.actions[0].displayValues;
+	return {
+		data: data.cart.cart_items[0].service_options.actions[0].displayValues,
+		error: null,
+	};
 };
 
 const constructPaytmUrl = () => {
