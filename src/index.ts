@@ -28,6 +28,12 @@ interface ElectricityDataResponse {
 	error: unknown;
 }
 
+interface AirtableRequestData {
+	date: string;
+	amount: string;
+	time: string;
+}
+
 interface Config {
 	airtableName: string;
 	airtableApiKey: string;
@@ -41,10 +47,11 @@ export default {
 		ctx: ExecutionContext
 	): Promise<void> {
 		let isSuccessRun = false;
+		const [formattedDate, formattedTime] = getDateTime();
 		const { data, error } = await gatherElectricityData(env);
 		if (data === null || error !== null) {
 			console.log(
-				"Failed to fetch electricity data from worker ",
+				`${[formattedDate]} Failed to fetch electricity data from worker `,
 				isSuccessRun
 			);
 			return;
@@ -53,7 +60,21 @@ export default {
 		const amountIndex = getAmountIndex(data);
 		if (amountIndex === -1) return;
 
-		await submitAirtableHandler(data[amountIndex].value, env);
+		const airtableRecord: AirtableRequestData = {
+			date: formattedDate,
+			time: formattedTime,
+			amount: data[amountIndex].value,
+		};
+		const { airtableError } = await submitAirtableHandler(airtableRecord, env);
+
+		if (airtableError !== null) {
+			console.log(
+				`${[formattedDate]} Failed to push data to airtable `,
+				airtableError
+			);
+			return;
+		}
+
 		console.log("Worker run status:  ", isSuccessRun);
 	},
 };
@@ -87,14 +108,17 @@ const getDateTime = () => {
 	return [convertDate(formattedDate), formattedTime];
 };
 
-const submitAirtableHandler = async (amount: string, env: Env) => {
-	const [formattedDate, formattedTime] = getDateTime();
+const submitAirtableHandler = async (
+	requestData: AirtableRequestData,
+	env: Env
+) => {
+	const { date, amount, time } = requestData;
 
 	const reqBody = {
 		fields: {
-			Date: formattedDate,
+			Date: date,
 			Amount: amount,
-			"Time recorded": formattedTime,
+			"Time recorded": time,
 		},
 	};
 
@@ -112,7 +136,10 @@ const submitAirtableHandler = async (amount: string, env: Env) => {
 		}
 	} catch (ex: unknown) {
 		console.error("Failed writing to airtable: ", ex);
+		return { airtableData: null, airtableError: ex };
 	}
+
+	return { airtableData: "done", airtableError: null };
 };
 
 const createAirtableRecord = (body: any, config: Config) => {
