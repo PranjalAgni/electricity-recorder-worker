@@ -72,8 +72,7 @@ const convertDate = (dateString: string) => {
 	return `${month}/${day}/${year}`;
 };
 
-const submitAirtableHandler = async (amount: string, env: Env) => {
-	// TODO: Extract date/time building logic in a seperate function
+const getDateTime = () => {
 	const [formattedDate, formattedTime] = new Intl.DateTimeFormat("en-GB", {
 		day: "2-digit",
 		month: "2-digit",
@@ -85,9 +84,15 @@ const submitAirtableHandler = async (amount: string, env: Env) => {
 		.format(new Date())
 		.split(", ");
 
+	return [convertDate(formattedDate), formattedTime];
+};
+
+const submitAirtableHandler = async (amount: string, env: Env) => {
+	const [formattedDate, formattedTime] = getDateTime();
+
 	const reqBody = {
 		fields: {
-			Date: convertDate(formattedDate),
+			Date: formattedDate,
 			Amount: amount,
 			"Time recorded": formattedTime,
 		},
