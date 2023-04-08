@@ -46,19 +46,23 @@ export default {
 		env: Env,
 		ctx: ExecutionContext
 	): Promise<void> {
-		let isSuccessRun = false;
+		let isSuccessRun = null;
 		const [formattedDate, formattedTime] = getDateTime();
 		const { data, error } = await gatherElectricityData(env);
 		if (data === null || error !== null) {
+			isSuccessRun = false;
 			console.log(
 				`${[formattedDate]} Failed to fetch electricity data from worker `,
-				isSuccessRun
+				!isSuccessRun
 			);
 			return;
 		}
 
 		const amountIndex = getAmountIndex(data);
-		if (amountIndex === -1) return;
+		if (amountIndex === -1) {
+			isSuccessRun = false;
+			return;
+		}
 
 		const airtableRecord: AirtableRequestData = {
 			date: formattedDate,
@@ -68,6 +72,7 @@ export default {
 		const { airtableError } = await submitAirtableHandler(airtableRecord, env);
 
 		if (airtableError !== null) {
+			isSuccessRun = false;
 			console.log(
 				`${[formattedDate]} Failed to push data to airtable `,
 				airtableError
@@ -75,6 +80,7 @@ export default {
 			return;
 		}
 
+		isSuccessRun = true;
 		console.log("Worker run status:  ", isSuccessRun);
 	},
 };
