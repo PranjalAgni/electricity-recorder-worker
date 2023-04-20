@@ -69,11 +69,12 @@ export default {
 			logs.push("Extracted electricity balance from json data");
 		}
 
+		const balance = data[amountIndex].value;
 		if (isAirtableStore) {
 			const airtableRecord: AirtableRequestData = {
 				date: formattedDate,
 				time: formattedTime,
-				amount: data[amountIndex].value,
+				amount: balance,
 			};
 			const { airtableError } = await submitAirtableHandler(
 				airtableRecord,
@@ -97,11 +98,15 @@ export default {
 		isSuccessRun = true;
 		console.log("Worker run status:  ", isSuccessRun);
 
-		return prepareResponse(logs, isSuccessRun);
+		return prepareResponse(logs, isSuccessRun, balance);
 	},
 };
 
-const prepareResponse = (logs: string[], isSuccessRun: boolean) => {
+const prepareResponse = (
+	logs: string[],
+	isSuccessRun: boolean,
+	amount?: string
+) => {
 	const init = {
 		headers: {
 			"content-type": "application/json;charset=UTF-8",
@@ -112,6 +117,7 @@ const prepareResponse = (logs: string[], isSuccessRun: boolean) => {
 		JSON.stringify({
 			isSuccess: isSuccessRun,
 			logs,
+			balance: amount,
 		}),
 		init
 	);
