@@ -40,12 +40,14 @@ interface Config {
 	airtableBaseId: string;
 }
 
+let logs: string[] = [];
+
 export default {
-	async scheduled(
-		controller: ScheduledController,
-		env: Env,
-		ctx: ExecutionContext
-	): Promise<void> {
+	async fetch(request: Request, env: Env, ctx: ExecutionContext) {
+		logs = [];
+		const { searchParams } = new URL(request.url);
+		const isAirtableStore =
+			searchParams.get("airtable") === "true" ? true : false;
 		let isSuccessRun = null;
 		const [formattedDate, formattedTime] = getDateTime();
 		const { data, error } = await gatherElectricityData(env);
@@ -55,34 +57,64 @@ export default {
 				`${[formattedDate]} Failed to fetch electricity data from worker `,
 				!isSuccessRun
 			);
-			return;
+			return prepareResponse(logs, isSuccessRun);
 		}
 
 		const amountIndex = getAmountIndex(data);
 		if (amountIndex === -1) {
 			isSuccessRun = false;
-			return;
+			logs.push("Electricity amount not present in PaytmAPI :(");
+			return prepareResponse(logs, isSuccessRun);
+		} else {
+			logs.push("Extracted electricity balance from json data");
 		}
 
-		const airtableRecord: AirtableRequestData = {
-			date: formattedDate,
-			time: formattedTime,
-			amount: data[amountIndex].value,
-		};
-		const { airtableError } = await submitAirtableHandler(airtableRecord, env);
-
-		if (airtableError !== null) {
-			isSuccessRun = false;
-			console.log(
-				`${[formattedDate]} Failed to push data to airtable `,
-				airtableError
+		if (isAirtableStore) {
+			const airtableRecord: AirtableRequestData = {
+				date: formattedDate,
+				time: formattedTime,
+				amount: data[amountIndex].value,
+			};
+			const { airtableError } = await submitAirtableHandler(
+				airtableRecord,
+				env
 			);
-			return;
+
+			if (airtableError !== null) {
+				isSuccessRun = false;
+				console.log(
+					`${[formattedDate]} Failed to push data to airtable `,
+					airtableError
+				);
+				return prepareResponse(logs, isSuccessRun);
+			}
+
+			console.log(
+				"Electricity balance has been successfully updated on Airtable"
+			);
 		}
 
 		isSuccessRun = true;
 		console.log("Worker run status:  ", isSuccessRun);
+
+		return prepareResponse(logs, isSuccessRun);
 	},
+};
+
+const prepareResponse = (logs: string[], isSuccessRun: boolean) => {
+	const init = {
+		headers: {
+			"content-type": "application/json;charset=UTF-8",
+		},
+	};
+
+	return new Response(
+		JSON.stringify({
+			isSuccess: isSuccessRun,
+			logs,
+		}),
+		init
+	);
 };
 
 const getAmountIndex = (data: Array<BillData>) => {
@@ -141,10 +173,12 @@ const submitAirtableHandler = async (
 			throw new Error(JSON.stringify(data, null, 3));
 		}
 	} catch (ex: unknown) {
+		logs.push("Error occured when writing to Airtable");
 		console.error("Failed writing to airtable: ", ex);
 		return { airtableData: null, airtableError: ex };
 	}
 
+	logs.push("Successfully wrote to Airtable");
 	return { airtableData: "done", airtableError: null };
 };
 
@@ -189,6 +223,7 @@ const gatherElectricityData = async (
 	const data: PaytmResponse = await response.json();
 
 	if (!response.ok) {
+		logs.push(`Error fetching balance from Paytm API: ${response.statusText}`);
 		console.error("Error fetching the electricity data: ", response.statusText);
 		return {
 			data: null,
@@ -196,6 +231,7 @@ const gatherElectricityData = async (
 		};
 	}
 
+	logs.push("Successfully fetched electricity data using Paytm API");
 	return {
 		data: data.cart.cart_items[0].service_options.actions[0].displayValues,
 		error: null,
