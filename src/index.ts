@@ -7,15 +7,16 @@ import {
 	PaytmResponse,
 } from "./interface";
 
-let logs: string[] = [];
+let logs: Array<string[]> = [];
 let logPusher: null | ReturnType<typeof logPush> = null;
 
 export default {
 	async fetch(request: Request, env: Env, ctx: ExecutionContext) {
 		logs = [];
-		logPusher = logPush(logs);
-		logPusher!("Worker started running");
 		const startTime = new Date().getTime();
+
+		logPusher = logPush(logs, startTime);
+		logPusher!("Worker started running");
 		const { searchParams } = new URL(request.url);
 		const isAirtableStore =
 			searchParams.get("airtable") === "true" ? true : false;
@@ -216,15 +217,17 @@ const getPaytmHeaders = (env: Env) => {
 };
 
 const logPush =
-	(logs: string[]) =>
+	(logs: Array<string[]>, startTime: number) =>
 	(message: string, isError = false) => {
-		logs.push(message);
+		const endTime = new Date().getTime();
+		const timeTakenInMs = `${endTime - startTime}ms`;
+		logs.push([message, timeTakenInMs]);
 		if (isError) console.error(message);
 		else console.log(message);
 	};
 
 const prepareResponse = (
-	logs: string[],
+	logs: Array<string[]>,
 	isSuccessRun: boolean,
 	amount?: string
 ) => {
