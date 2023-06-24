@@ -142,7 +142,7 @@ const fetchElectricityDataFromElMeasure = async (env: Env) => {
 	const API_URL = "http://183.83.218.132:8091/api/Dashboard/HomeData";
 	const headers = {
 		"Content-Type": "application/json",
-		Authorization: "Bearer <TOKEN>",
+		Authorization: `Bearer ${env.ELMEASURE_TOKEN}`,
 	};
 
 	try {
@@ -154,7 +154,6 @@ const fetchElectricityDataFromElMeasure = async (env: Env) => {
 			}),
 		});
 
-		console.log("Is response okay ", response.ok);
 		const data = (await response.json()) as ElMeasureResponse;
 
 		console.log(JSON.stringify(data, null, 3));

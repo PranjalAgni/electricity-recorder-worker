@@ -5,6 +5,7 @@ export interface Env {
 	"x-csrf-token": string;
 	"x-xsrf-token": string;
 	cookie: string;
+	ELMEASURE_TOKEN: string;
 }
 
 export interface PaytmResponse {
