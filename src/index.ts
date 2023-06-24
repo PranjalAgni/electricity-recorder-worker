@@ -2,6 +2,7 @@ import {
 	AirtableRequestData,
 	BillData,
 	Config,
+	ElMeasureResponse,
 	ElectricityDataResponse,
 	Env,
 	PaytmResponse,
@@ -22,23 +23,23 @@ export default {
 			searchParams.get("airtable") === "true" ? true : false;
 		let isSuccessRun = null;
 		const [formattedDate, formattedTime] = getDateTime();
-		const { data, error } = await gatherElectricityData(env);
+		const { data, error } = await fetchElectricityDataFromElMeasure(env);
 
 		if (data === null || error !== null) {
 			isSuccessRun = false;
 			return prepareResponse(logs, isSuccessRun);
 		}
 
-		const amountIndex = getAmountIndex(data);
-		if (amountIndex === -1) {
-			isSuccessRun = false;
-			logPusher!("Electricity amount not present in PaytmAPI :(", true);
-			return prepareResponse(logs, isSuccessRun);
-		} else {
-			logPusher!("Yay extracted electricity balance from json data");
-		}
+		// const amountIndex = getAmountIndex(data);
+		// if (amountIndex === -1) {
+		// 	isSuccessRun = false;
+		// 	logPusher!("Electricity amount not present in PaytmAPI :(", true);
+		// 	return prepareResponse(logs, isSuccessRun);
+		// } else {
+		// 	logPusher!("Yay extracted electricity balance from json data");
+		// }
 
-		const balance = data[amountIndex].value;
+		const balance = String(data);
 		if (isAirtableStore) {
 			const airtableRecord: AirtableRequestData = {
 				date: formattedDate,
@@ -61,14 +62,6 @@ export default {
 		logPusher!(`Worker took ${timeTaken}ms to complete`);
 		return prepareResponse(logs, isSuccessRun, balance);
 	},
-};
-
-const getAmountIndex = (data: Array<BillData>) => {
-	const findIndex = data.findIndex(
-		(billData) => billData.label === "Main Balance"
-	);
-
-	return findIndex;
 };
 
 const convertDate = (dateString: string) => {
@@ -145,6 +138,53 @@ const createAirtableRecord = (body: any, config: Config) => {
 	);
 };
 
+const fetchElectricityDataFromElMeasure = async (env: Env) => {
+	const API_URL = "http://183.83.218.132:8091/api/Dashboard/HomeData";
+	const headers = {
+		"Content-Type": "application/json",
+		Authorization: "Bearer <TOKEN>",
+	};
+
+	try {
+		const response = await fetch(API_URL, {
+			method: "POST",
+			headers,
+			body: JSON.stringify({
+				InputType: "oXLjqdCNoKGT4cnWSN1WZslfxBgP2Fl2uWt0/dIswOI=",
+			}),
+		});
+
+		console.log("Is response okay ", response.ok);
+		const data = (await response.json()) as ElMeasureResponse;
+
+		console.log(JSON.stringify(data, null, 3));
+
+		if (!response.ok) {
+			return {
+				data: null,
+				error: data,
+			};
+		}
+
+		return {
+			data: data.Data.MeterBal,
+			error: null,
+		};
+	} catch (ex) {
+		const error = ex as Error;
+		console.error(error.message);
+		return {
+			error,
+			data: null,
+		};
+	}
+};
+
+/** 
+ * Date: 2023-06-24 Time: 11:20:00 PM
+ * Not using this function anymore, as got a better way to fetch the balance using ElMeasure App
+ * Used mitmproxy to identify the API calls which ElMeasure app was doing and using the same API to fetch the balance
+ * 
 const gatherElectricityData = async (
 	env: Env
 ): Promise<ElectricityDataResponse> => {
@@ -215,6 +255,15 @@ const getPaytmHeaders = (env: Env) => {
 
 	return headers;
 };
+
+const getAmountIndex = (data: Array<BillData>) => {
+	const findIndex = data.findIndex(
+		(billData) => billData.label === "Main Balance"
+	);
+
+	return findIndex;
+};
+*/
 
 const logPush =
 	(logs: Array<string[]>, startTime: number) =>

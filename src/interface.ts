@@ -40,3 +40,9 @@ export interface Config {
 	airtableApiKey: string;
 	airtableBaseId: string;
 }
+
+export interface ElMeasureResponse {
+	Data: {
+		MeterBal: number;
+	};
+}
