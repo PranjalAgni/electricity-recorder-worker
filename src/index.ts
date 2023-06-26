@@ -82,7 +82,7 @@ const getDateTime = () => {
 		.format(new Date())
 		.split(", ");
 
-	logPusher("Successfully generated date and time");
+	logPusher!("Successfully generated date and time");
 	return [convertDate(formattedDate), formattedTime];
 };
 
