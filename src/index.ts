@@ -16,8 +16,8 @@ export default {
 		logs = [];
 		const startTime = new Date().getTime();
 
-		logPusher = logPush(logs, startTime);
-		logPusher!("Worker started running");
+		logPusher = logPush(logs, startTime)!;
+		logPusher("Worker started running");
 		const { searchParams } = new URL(request.url);
 		const isAirtableStore =
 			searchParams.get("airtable") === "true" ? true : false;
@@ -33,10 +33,10 @@ export default {
 		// const amountIndex = getAmountIndex(data);
 		// if (amountIndex === -1) {
 		// 	isSuccessRun = false;
-		// 	logPusher!("Electricity amount not present in PaytmAPI :(", true);
+		// 	logPusher("Electricity amount not present in PaytmAPI :(", true);
 		// 	return prepareResponse(logs, isSuccessRun);
 		// } else {
-		// 	logPusher!("Yay extracted electricity balance from json data");
+		// 	logPusher("Yay extracted electricity balance from json data");
 		// }
 
 		const balance = String(data);
@@ -59,7 +59,7 @@ export default {
 
 		isSuccessRun = true;
 		const timeTaken = new Date().getTime() - startTime;
-		logPusher!(`Worker took ${timeTaken}ms to complete`);
+		logPusher(`Worker took ${timeTaken}ms to complete`);
 		return prepareResponse(logs, isSuccessRun, balance);
 	},
 };
@@ -82,7 +82,7 @@ const getDateTime = () => {
 		.format(new Date())
 		.split(", ");
 
-	logPusher!("Successfully generated date and time");
+	logPusher("Successfully generated date and time");
 	return [convertDate(formattedDate), formattedTime];
 };
 
