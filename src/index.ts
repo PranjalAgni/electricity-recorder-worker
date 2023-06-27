@@ -156,8 +156,6 @@ const fetchElectricityDataFromElMeasure = async (env: Env) => {
 
 		const data = (await response.json()) as ElMeasureResponse;
 
-		console.log(JSON.stringify(data, null, 3));
-
 		if (!response.ok) {
 			return {
 				data: null,
